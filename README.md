@@ -1,7 +1,7 @@
 # project name: Empoyee management
-# prerequsite of this project
+## prerequsite of this project
  1.`c ++ compiler (g++)`
-## install g++ (in windows)
+### install g++ (in windows)
 - step 1-
   install MinGW
 - step 2 -
