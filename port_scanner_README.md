@@ -4,7 +4,7 @@ This is a simple asynchronous port scanner implemented in C++ using Boost.Asio l
 
 ## Prerequisites
 
-- C++ compiler that supports C++11 or later
+- C++ compiler t
 - Boost.Asio library
 
 ## Installation
