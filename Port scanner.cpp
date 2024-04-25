@@ -1,188 +1,97 @@
 #include <iostream>
-#include <string>
 #include <vector>
-#include <iomanip>
-#include <SFML/Network.hpp>
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-#define WINDOWS
+// List to store open ports
+std::vector<int> open_ports;
 
-using namespace std;
-using namespace sf;
+void print_progress_bar(int current, int total);
 
-//Global var
-const int PORT_LIMIT = 65535;
-//Prototypes
-void singleScan(string);
-void rangeScan(string);
-string portStatus(const string&, int);
-void clearConsole();
-
-int main()
-{
-	int op1;
-	int op2;
-	char remote[16];
-	bool flag;
-	char cont;
-	const char header[62] = "-------------------- SIMPLE PORT SCANNER --------------------";
-	const char footer[62] = "-------------------- PROGRAM  TERMINATED --------------------";
-	string scanHost;
-	const string LOCAL = "localhost";
-
-	do {
-		//Display header
-		cout << header << endl << endl;
-
-		//Local scan and remote scan menu
-		cout << "Would you like to perform a local scan or enter a remote IP?" << endl;
-		cout << "1. Scan localhost" << endl << "2. Enter an IP" << endl;
-		cout << ">> ";
-		cin >> op1;
-		while (op1 != 1 && op1 != 2)
-		{
-			cout << "Invalid response. Try again." << endl << ">> ";
-			cin >> op1;
-		}
-		switch (op1) {
-		case 1:
-			scanHost = LOCAL;
-			break;
-		case 2:
-			cout << endl << "Enter an IPv4 address (ex: 255.255.255.255) or a valid URL." << endl << ">> ";
-			cin.ignore();
-			cin.getline(remote, 16);
-			scanHost = remote;
-			break;
-		}
-
-		//Single scan and range scan menu
-		cout << endl;
-		cout << "Would you like to scan a single port or a range of ports?" << endl;
-		cout << "1. Single" << endl << "2. Range" << endl;
-		cout << ">> ";
-		cin >> op2;
-		while (op2 != 1 && op2 != 2)
-		{
-			cout << "Invalid response. Try again." << endl << ">> ";
-			cin >> op2;
-		}
-		cout << endl;
-
-		switch (op2) {
-		case 1:
-			singleScan(scanHost);
-			break;
-		case 2:
-			rangeScan(scanHost);
-			break;
-		}
-
-		//Restart option
-		cout << endl << "Would you like to perform another scan? Y/N" << endl << ">> ";
-		cin >> cont;
-
-		while (cont != 'Y' && cont != 'y' && cont != 'N' && cont != 'n')
-		{
-			cout << "Invalid response. Try again." << endl << ">> ";
-			cin >> cont;
-		}
-
-		if (cont == 'Y' || cont == 'y')
-		{
-			flag = true;
-			clearConsole();
-		}
-		else
-			flag = false;
-
-	} while (flag == true);
-
-	//Display footer
-	cout << endl << footer << endl;
-
-	return 0;
+void handle_connect(const boost::system::error_code& error, boost::asio::ip::tcp::socket& socket, int target_port, int& total_ports, int& scanned_ports) {
+    if (!error) {
+        // Connection successful
+        open_ports.push_back(target_port);
+        std::cout << "[+] Port " << target_port << "/tcp is open                                    " << std::endl;
+    }
+    // Update the scanned ports counter
+    ++scanned_ports;
+    // Print the progress bar
+    print_progress_bar(scanned_ports, total_ports);
+    // No need to close the socket here, as it will be closed automatically when it goes out of scope
 }
 
-void singleScan(string host)
-{
-	int portNum;
+// Define the print_progress_bar function after it's declared
+void print_progress_bar(int current, int total) {
+    int bar_width = 50;
+    double progress = static_cast<double>(current) / total;
+    int pos = static_cast<int>(bar_width * progress);
 
-	cout << "Enter a port number to scan." << endl << ">> ";
-	cin >> portNum;
-	while (portNum < 0 || portNum > PORT_LIMIT)
-	{
-		cout << "Invalid response. Enter a valid port number:  ";
-		cin >> portNum;
-	}
-
-	//Displaying single scan result
-	cout << endl << "Scanning " << host << "..." << endl;
-	cout << "Port " << portNum << " is " << portStatus(host, portNum) << endl;
+    std::cout << "[";
+    for (int i = 0; i < bar_width; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << std::fixed << std::setprecision(2) << (progress * 100.0) << " %\r";
+    std::cout.flush();
 }
 
-void rangeScan(string host)
-{
-	int beg;
-	int end;
-	vector<int> range;
+void scan_port(const std::string& target_host, int target_port, int& total_ports, int& scanned_ports) {
+    try {
+        boost::asio::io_service io_service;
+        boost::asio::ip::tcp::socket socket(io_service);
+        boost::asio::ip::tcp::resolver resolver(io_service);
+        boost::asio::ip::tcp::resolver::query query(target_host, std::to_string(target_port));
+        boost::asio::ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 
-	cout << "Enter the first port number in the scan range." << endl << ">> ";
-	cin >> beg;
-	while (beg < 0 || beg > PORT_LIMIT)
-	{
-		cout << "Invalid response. Try again." << endl << ">> ";
-		cin >> beg;
-	}
-	cout << endl << "Enter the last port number in the scan range." << endl << ">> ";
-	cin >> end;
-	while (end < 0 || end > PORT_LIMIT)
-	{
-		cout << "Invalid response. Try again." << endl << ">> ";
-		cin >> end;
-	}
+        // Set a timeout for the connection attempt
+        boost::asio::deadline_timer timer(io_service);
+        timer.expires_from_now(boost::posix_time::millisec(100));
+        timer.async_wait([&socket](const boost::system::error_code& error) {
+            if (!error) {
+                socket.close();
+            }
+        });
 
-	//Err checking
-	if (beg > end)
-		swap(beg, end);
-	if (beg == end)
-	{
-		end = beg;
-		beg = 0;	//displays ports 0-beg if beg and end are equal
-	}
+        // Attempt to connect to the target host and port
+        boost::asio::async_connect(socket, endpoint_iterator, [&socket, target_port, &total_ports, &scanned_ports](const boost::system::error_code& error, boost::asio::ip::tcp::resolver::iterator) {
+            handle_connect(error, socket, target_port, total_ports, scanned_ports);
+        });
 
-
-	for (; beg <= end; beg++)
-	{
-		range.push_back(beg);
-	}
-
-	//Displaying range scan results
-	cout << endl << "Scanning " << host << "..." << endl;
-	for (auto i = range.begin(); i != range.end(); ++i)
-	{
-		cout << "Port " << *i << setw(12) << portStatus(host, *i) << endl;
-	}
-
+        // Run the io_service to perform the asynchronous operations
+        io_service.run();
+    }
+    catch (std::exception& e) {
+        std::cout << "Exception: " << e.what() << std::endl;
+    }
 }
 
-string portStatus(const string& ip, int port)
-{
-	string status;
+int main() {
+    // Specify the target host and port range
+    std::string target_host;
+    int start_port, end_port;
 
-	//Scanning ports
-	if (TcpSocket().connect(ip, port) == Socket::Done)
-		status = "open";
-	else
-		status = "closed";
-	return status;
-}
+    std::cout << "Enter the target host: ";
+    std::cin >> target_host;
+    std::cout << "Enter the start port: ";
+    std::cin >> start_port;
+    std::cout << "Enter the end port: ";
+    std::cin >> end_port;
 
-void clearConsole()
-{
-#ifdef WINDOWS
-	system("cls");
-#endif
-#ifdef LINUX
-	system("clear")
-#endif
+    int total_ports = end_port - start_port + 1;
+    int scanned_ports = 0;
+
+    // Call the port_scanner function
+    for (int port = start_port; port <= end_port; ++port) {
+        scan_port(target_host, port, total_ports, scanned_ports);
+    }
+
+    // Print the list of open ports
+    std::cout << "\nOpen ports:" << std::endl;
+    for (int port : open_ports) {
+        std::cout << port << std::endl;
+    }
+
+    return 0;
 }
