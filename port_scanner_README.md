@@ -6,10 +6,6 @@ This C++ program is a simple port scanner designed for personal research and edu
 - This project was developed for personal research and education purposes only.
 - Do not use this tool to scan networks or ports that you do not have permission to scan.
 
-### Project Details:
-
-- **Date Created:** 14 Jun 2022
-- **Author:** Kyle Noel
 
 ### Features:
 
