@@ -1,6 +1,6 @@
 #  Port Scanner 
 
-This is a simple asynchronous port scanner implemented in C++ using Boost.Asio library. It allows you to scan a range of ports on a specified host to determine which ports are open.
+This is a simple asynchronous port scanner implemented in C++ using Boost.Asio library. It allows you to scan a range of ports on a specified host to determine which ports are open .
 
 ## Prerequisites
 
